@@ -878,74 +878,77 @@ let notesUnlocked=false, whyUnlocked=false, shuffledTasks=[], srchExpanded=false
 const today=new Date(), todayS=today.toISOString().split("T")[0];
 
 /* ===== FIREBASE SYNC ===== */
-function sv() {
-  if(!fbRef) return;
-  // Clean S for Firebase (remove undefined)
-  const clean = JSON.parse(JSON.stringify(S));
-  fbRef.set(clean).catch(e => console.log("Save error:", e));
+// Convert Firebase object (with numeric keys) back to array
+function toArr(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  return Object.values(val);
 }
 
-function startSync() {
+function normaliseS(data) {
+  // Merge incoming Firebase data into clean state
+  if (!data) return;
+  if (data.pw !== undefined) S.pw = data.pw;
+  if (data.nA !== undefined) S.nA = data.nA;
+  if (data.nB !== undefined) S.nB = data.nB;
+  S.tasks = toArr(data.tasks);
+  S.projects = toArr(data.projects).map(p => { p.items = toArr(p.items); return p; });
+  S.deadlines = toArr(data.deadlines);
+  S.ideas = toArr(data.ideas);
+  S.goals = toArr(data.goals);
+  S.messages = toArr(data.messages);
+  S.notifications = toArr(data.notifications);
+  S.reminders = toArr(data.reminders);
+  S.checkins = data.checkins || {};
+  S.activeStatus = data.activeStatus || {A:0,B:0};
+  S.socials = data.socials || {youtube:{},instagram:{},tiktok:{},facebook:{}};
+  if (data.profiles) {
+    S.profiles = {
+      A: Object.assign({role:"",bio:"",notesPW:"",whyPW:"",notes:"",whyUrl:""}, data.profiles.A || {}),
+      B: Object.assign({role:"",bio:"",notesPW:"",whyPW:"",notes:"",whyUrl:""}, data.profiles.B || {})
+    };
+  }
+  if (data.brands) {
+    S.brands = {
+      brink: {
+        tasks: toArr(data.brands.brink ? data.brands.brink.tasks : []),
+        dates: toArr(data.brands.brink ? data.brands.brink.dates : []),
+        ideas: toArr(data.brands.brink ? data.brands.brink.ideas : []),
+        notes: (data.brands.brink && data.brands.brink.notes) || ""
+      },
+      btb: {
+        tasks: toArr(data.brands.btb ? data.brands.btb.tasks : []),
+        dates: toArr(data.brands.btb ? data.brands.btb.dates : []),
+        ideas: toArr(data.brands.btb ? data.brands.btb.ideas : []),
+        notes: (data.brands.btb && data.brands.btb.notes) || ""
+      }
+    };
+  }
+}
+
+function sv() {
+  if (!fbRef) return;
+  const clean = JSON.parse(JSON.stringify(S));
+  fbRef.set(clean).catch(e => console.error("Firebase save error:", e));
+}
+
+let fbLoaded = false;
+
+function startSync(onReady) {
   fbRef = db.ref("pademelon");
-  // Listen for real-time changes from other user
   fbListener = fbRef.on("value", (snap) => {
     const data = snap.val();
     if (!data) {
-      // First time - push default S
-      sv();
+      // Database empty - first time setup
+      fbLoaded = true;
+      if (onReady) { onReady(); onReady = null; }
       return;
     }
-    // Merge remote data into S
-    const prev = JSON.stringify(S);
-    S = Object.assign({}, S, data);
-    // Fix nested objects
-    if (data.profiles) {
-      S.profiles = {
-        A: Object.assign({role:"",bio:"",notesPW:"",whyPW:"",notes:"",whyUrl:""}, data.profiles.A),
-        B: Object.assign({role:"",bio:"",notesPW:"",whyPW:"",notes:"",whyUrl:""}, data.profiles.B)
-      };
-    }
-    if (data.brands) {
-      S.brands = {
-        brink: Object.assign({tasks:[],dates:[],notes:"",ideas:[]}, data.brands.brink),
-        btb: Object.assign({tasks:[],dates:[],notes:"",ideas:[]}, data.brands.btb)
-      };
-      ["brink","btb"].forEach(b => {
-        if(!S.brands[b].ideas) S.brands[b].ideas=[];
-        if(!S.brands[b].dates) S.brands[b].dates=[];
-        if(!Array.isArray(S.brands[b].tasks)) S.brands[b].tasks=[];
-      });
-    }
-    if(!S.tasks) S.tasks=[];
-    if(!S.projects) S.projects=[];
-    if(!S.deadlines) S.deadlines=[];
-    if(!S.ideas) S.ideas=[];
-    if(!S.goals) S.goals=[];
-    if(!S.messages) S.messages=[];
-    if(!S.notifications) S.notifications=[];
-    if(!S.reminders) S.reminders=[];
-    if(!S.checkins) S.checkins={};
-    if(!S.activeStatus) S.activeStatus={A:0,B:0};
-    if(!S.socials) S.socials={youtube:{},instagram:{},tiktok:{},facebook:{}};
-    // Convert Firebase objects back to arrays
-    ["tasks","projects","deadlines","ideas","goals","messages","notifications","reminders"].forEach(k => {
-      if(S[k] && !Array.isArray(S[k])) S[k] = Object.values(S[k]);
-    });
-    if(S.brands) {
-      ["brink","btb"].forEach(b => {
-        ["tasks","dates","ideas"].forEach(k => {
-          if(S.brands[b][k] && !Array.isArray(S.brands[b][k])) 
-            S.brands[b][k] = Object.values(S.brands[b][k]);
-        });
-      });
-    }
-    if(S.projects) {
-      S.projects.forEach(p => {
-        if(p.items && !Array.isArray(p.items)) p.items = Object.values(p.items);
-      });
-    }
-    // Only re-render if data actually changed and user is logged in
-    if(CU && prev !== JSON.stringify(S)) {
+    normaliseS(data);
+    fbLoaded = true;
+    if (onReady) { onReady(); onReady = null; }
+    // If already logged in, refresh the current page
+    if (CU) {
       updNames();
       refreshCurrentPage();
       rNotifBadge();
@@ -953,31 +956,32 @@ function startSync() {
       updChatContacts();
       updActive();
     }
+  }, (err) => {
+    console.error("Firebase error:", err);
+    fbLoaded = true;
+    if (onReady) { onReady(); onReady = null; }
   });
 }
 
 function stopSync() {
-  if(fbRef && fbListener) {
-    fbRef.off("value", fbListener);
-    fbListener = null;
-  }
+  if (fbRef && fbListener) { fbRef.off("value", fbListener); fbListener = null; }
 }
 
 function refreshCurrentPage() {
   const active = document.querySelector(".page.active");
-  if(!active) return;
+  if (!active) return;
   const id = active.id.replace("page-","");
-  if(id==="home") rHome();
-  else if(id==="today") rToday();
-  else if(id==="calendar") rCal();
-  else if(id==="projects") rProj();
-  else if(id==="dates") rDL();
-  else if(id==="creative") rIdeas();
-  else if(id==="brand") { if(curBrand) { if(curBTab==="tasks") rBTasks(); else if(curBTab==="dates") rBDates(); else if(curBTab==="creative") rBIdeas(); } else rBHub(); }
-  else if(id==="goals") rGoals();
-  else if(id==="shuffle") rShuffle();
-  else if(id==="socials") rSocials();
-  else if(id==="profile") rStats();
+  if(id==="home")rHome();
+  else if(id==="today")rToday();
+  else if(id==="calendar")rCal();
+  else if(id==="projects")rProj();
+  else if(id==="dates")rDL();
+  else if(id==="creative")rIdeas();
+  else if(id==="brand"){if(curBrand){if(curBTab==="tasks")rBTasks();else if(curBTab==="dates")rBDates();else if(curBTab==="creative")rBIdeas();}else rBHub();}
+  else if(id==="goals")rGoals();
+  else if(id==="shuffle")rShuffle();
+  else if(id==="socials")rSocials();
+  else if(id==="profile")rStats();
 }
 
 /* ===== LOGIN ===== */
@@ -986,57 +990,50 @@ function selU(u){selAcc=u;document.querySelectorAll(".lab").forEach(b=>b.classLi
 
 function doLogin(){
   const pw=document.getElementById("pwIn").value;
-  // Show loading state
-  document.getElementById("lerr").style.display="none";
-  document.getElementById("lerr").textContent="Connecting...";
-  document.getElementById("lerr").style.color="var(--text2)";
-  document.getElementById("lerr").style.display="block";
-  // First connect to Firebase to check password
-  startSync();
-  // Wait briefly for Firebase to load then check password
-  setTimeout(() => {
-    if(pw === S.pw) {
-      CU = selAcc;
-      S.activeStatus[CU] = Date.now();
+  const errEl=document.getElementById("lerr");
+  errEl.textContent="Connecting...";errEl.style.color="var(--text2)";errEl.style.display="block";
+  const tryLogin = () => {
+    if(pw===S.pw){
+      CU=selAcc;
+      S.activeStatus[CU]=Date.now();
       sv();
       document.getElementById("ls").style.display="none";
       document.getElementById("app").style.display="flex";
-      document.getElementById("lerr").style.display="none";
+      errEl.style.display="none";
       initApp();
     } else {
-      stopSync();
-      document.getElementById("lerr").textContent="Incorrect password.";
-      document.getElementById("lerr").style.color="var(--red)";
+      errEl.textContent="Incorrect password.";errEl.style.color="var(--red)";
       document.getElementById("pwIn").value="";
     }
-  }, 1500);
+  };
+  if(fbLoaded) tryLogin();
+  else startSync(tryLogin);
 }
 
 function doLogout(){
-  S.activeStatus[CU]=0;
-  sv();
-  stopSync();
-  CU=null;
-  notesUnlocked=false;whyUnlocked=false;shuffledTasks=[];
+  if(CU){S.activeStatus[CU]=0;sv();}
+  stopSync();fbLoaded=false;fbRef=null;
+  CU=null;notesUnlocked=false;whyUnlocked=false;shuffledTasks=[];
   document.getElementById("app").style.display="none";
   document.getElementById("ls").style.display="flex";
   document.getElementById("pwIn").value="";
   document.getElementById("lerr").style.display="none";
   updNames();
+  // Reconnect for next login
+  startSync(null);
 }
 
 function updNames(){
-  document.getElementById("lnA").textContent=S.nA||"Toby";
-  document.getElementById("avA").textContent=(S.nA||"T")[0];
-  document.getElementById("lnB").textContent=S.nB||"Lincoln";
-  document.getElementById("avB").textContent=(S.nB||"L")[0];
-  ["aoptA","claoptA","dlaoptA","iaoptA","gaoptA"].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=S.nA||"Toby"});
-  ["aoptB","claoptB","dlaoptB","iaoptB","gaoptB"].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=S.nB||"Lincoln"});
-  if(document.getElementById("shNmA")) document.getElementById("shNmA").textContent=S.nA||"Toby";
-  if(document.getElementById("shAvA")) document.getElementById("shAvA").textContent=(S.nA||"T")[0];
-  if(document.getElementById("shNmB")) document.getElementById("shNmB").textContent=S.nB||"Lincoln";
-  if(document.getElementById("shAvB")) document.getElementById("shAvB").textContent=(S.nB||"L")[0];
-  if(CU) { const on=document.getElementById("otherNm"); if(on) on.textContent=(CU==="A"?S.nB:S.nA)||""; }
+  const na=S.nA||"Toby";const nb=S.nB||"Lincoln";
+  document.getElementById("lnA").textContent=na;document.getElementById("avA").textContent=na[0];
+  document.getElementById("lnB").textContent=nb;document.getElementById("avB").textContent=nb[0];
+  ["aoptA","claoptA","dlaoptA","iaoptA","gaoptA"].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=na});
+  ["aoptB","claoptB","dlaoptB","iaoptB","gaoptB"].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=nb});
+  if(document.getElementById("shNmA"))document.getElementById("shNmA").textContent=na;
+  if(document.getElementById("shAvA"))document.getElementById("shAvA").textContent=na[0];
+  if(document.getElementById("shNmB"))document.getElementById("shNmB").textContent=nb;
+  if(document.getElementById("shAvB"))document.getElementById("shAvB").textContent=nb[0];
+  if(CU){const on=document.getElementById("otherNm");if(on)on.textContent=(CU==="A"?nb:na);}
 }
 
 /* ===== INIT ===== */
@@ -1316,20 +1313,19 @@ function seedIfEmpty(){
 }
 
 /* ===== BOOT ===== */
-// Start Firebase sync immediately so password check works
-startSync();
-// Show loading state on login screen
-document.getElementById("lerr").textContent="Loading...";
-document.getElementById("lerr").style.color="var(--text2)";
-document.getElementById("lerr").style.display="block";
-// Wait for first Firebase load then hide loading
-setTimeout(()=>{
-  if(!CU){
-    document.getElementById("lerr").style.display="none";
-    seedIfEmpty();
-  }
+// Connect to Firebase and load data on page open
+const errEl = document.getElementById("lerr");
+errEl.textContent = "Loading...";
+errEl.style.color = "var(--text2)";
+errEl.style.display = "block";
+
+startSync(() => {
+  // Firebase has loaded - hide loading message
+  errEl.style.display = "none";
+  // Seed demo data if database is completely empty
+  seedIfEmpty();
   updNames();
-},2000);
+});
 </script>
 </body>
 </html>
