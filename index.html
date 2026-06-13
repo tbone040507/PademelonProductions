@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Pademelon">
 <meta name="theme-color" content="#0a0a0f">
 <title>Pademelon Productions</title>
@@ -39,7 +39,7 @@ h1,h2,h3,h4{font-family:"Syne",sans-serif}
 .lerr{color:var(--red);font-size:12px;margin-top:6px;display:none}
 /* APP */
 #app{display:none;height:100vh;height:-webkit-fill-available;flex-direction:column;padding-top:0}
-.topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));gap:4px;flex-shrink:0;position:sticky;top:0;z-index:200}
+.topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));gap:4px;flex-shrink:0;position:sticky;top:0;z-index:200}
 .tlogo{font-family:"Syne",sans-serif;font-weight:800;font-size:12.5px;background:linear-gradient(135deg,#7c6af7,#3ecf8e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;line-height:1.15;cursor:default;flex-shrink:0;margin-right:6px}
 .tlogo span{display:block;font-size:7.5px;font-weight:500;-webkit-text-fill-color:rgba(144,144,176,.6);letter-spacing:.3px}
 /* TODAY tab - standalone */
@@ -64,7 +64,7 @@ h1,h2,h3,h4{font-family:"Syne",sans-serif}
 .nmenu.open{display:block}
 .nmi{padding:7px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;display:flex;align-items:center;gap:7px}
 .nmi:hover{background:var(--bg3);color:var(--text)}
-.sres{position:fixed;top:calc(56px + env(safe-area-inset-top));right:13px;width:280px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:5px;z-index:300;display:none;box-shadow:0 8px 26px rgba(0,0,0,.4);max-height:280px;overflow-y:auto}
+.sres{position:absolute;top:56px;right:13px;width:280px;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:5px;z-index:300;display:none;box-shadow:0 8px 26px rgba(0,0,0,.4);max-height:280px;overflow-y:auto}
 .sres.open{display:block}
 .sri{padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .15s}
 .sri:hover{background:var(--bg3)}
