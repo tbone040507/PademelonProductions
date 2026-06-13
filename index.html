@@ -860,7 +860,8 @@ let S = {
 };
 
 let CU=null, fbRef=null, fbListener=null;
-let calY, calM, bcalY, bcalM;
+const _now = new Date();
+let calY=_now.getFullYear(), calM=_now.getMonth(), bcalY=_now.getFullYear(), bcalM=_now.getMonth();
 let eTid=null, ePid=null, eClPid=null, eDLid=null, eIid=null, eGid=null;
 let curBrand=null, curBTab="tasks", ideaFilter="all", bIdeaFilter="all";
 let goalPeriod="week", statPeriod="week", clickedDate=null;
@@ -1063,7 +1064,7 @@ function showPage(p){
   document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
   const el=document.getElementById("page-"+p);if(el)el.classList.add("active");
   document.getElementById("curPage").textContent=PNAMES[p]||p;
-  if(p==="home")rHome();if(p==="today")rToday();if(p==="calendar")rCal();if(p==="projects")rProj();
+  if(p==="home")rHome();if(p==="today")rToday();if(p==="calendar"){if(calY&&calM!==undefined)rCal();};if(p==="projects")rProj();
   if(p==="dates")rDL();if(p==="creative")rIdeas();
   if(p==="brand"){rBHub();document.getElementById("brandHub").style.display="";document.getElementById("brandDetail").style.display="none";}
   if(p==="goals")rGoals();if(p==="shuffle")rShuffle();if(p==="socials")rSocials();
@@ -1190,7 +1191,7 @@ const MONTHS=["January","February","March","April","May","June","July","August",
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function chMo(d){calM+=d;if(calM>11){calM=0;calY++}if(calM<0){calM=11;calY--}rCal()}
 function rCal(){bldCal("calGrid","calLbl",calY,calM,S.tasks||[])}
-function bldCal(gid,lid,yr,mo,tasks){const lel=document.getElementById(lid);if(!lel)return;lel.textContent=MONTHS[mo]+" "+yr;const g=document.getElementById(gid);if(!g)return;g.innerHTML="";DAYS.forEach(d=>{const c=document.createElement("div");c.className="cdlbl";c.textContent=d;g.appendChild(c)});const f=new Date(yr,mo,1).getDay(),dim=new Date(yr,mo+1,0).getDate(),dip=new Date(yr,mo,0).getDate();for(let i=0;i<f;i++){const c=document.createElement("div");c.className="calcel om";c.innerHTML='<div class="caldate">'+(dip-f+1+i)+"</div>";g.appendChild(c)}for(let d=1;d<=dim;d++){const ds=yr+"-"+String(mo+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");const isT=ds===todayS;const cell=document.createElement("div");cell.className="calcel"+(isT?" today":"");cell.onclick=()=>{clickedDate=ds;showCalDay(ds,tasks)};const dd=document.createElement("div");dd.className="caldate";dd.textContent=d;cell.appendChild(dd);const dt=(tasks||[]).filter(t=>t.date===ds);dt.slice(0,3).forEach(t=>{const ev=document.createElement("div");ev.className="calev ev-"+t.category;ev.textContent=t.title;cell.appendChild(ev)});if(dt.length>3){const m=document.createElement("div");m.className="calmr";m.textContent="+"+(dt.length-3)+" more";cell.appendChild(m)}g.appendChild(cell)}const rem=(7-(f+dim)%7)%7;for(let i=1;i<=rem;i++){const c=document.createElement("div");c.className="calcel om";c.innerHTML='<div class="caldate">'+i+"</div>";g.appendChild(c)}}
+function bldCal(gid,lid,yr,mo,tasks){const lel=document.getElementById(lid);if(!lel)return;lel.textContent=(MONTHS[mo]||"")+" "+(yr||"");const g=document.getElementById(gid);if(!g)return;g.innerHTML="";DAYS.forEach(d=>{const c=document.createElement("div");c.className="cdlbl";c.textContent=d;g.appendChild(c)});const f=new Date(yr,mo,1).getDay(),dim=new Date(yr,mo+1,0).getDate(),dip=new Date(yr,mo,0).getDate();for(let i=0;i<f;i++){const c=document.createElement("div");c.className="calcel om";c.innerHTML='<div class="caldate">'+(dip-f+1+i)+"</div>";g.appendChild(c)}for(let d=1;d<=dim;d++){const ds=yr+"-"+String(mo+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");const isT=ds===todayS;const cell=document.createElement("div");cell.className="calcel"+(isT?" today":"");cell.onclick=()=>{clickedDate=ds;showCalDay(ds,tasks)};const dd=document.createElement("div");dd.className="caldate";dd.textContent=d;cell.appendChild(dd);const dt=(tasks||[]).filter(t=>t.date===ds);dt.slice(0,3).forEach(t=>{const ev=document.createElement("div");ev.className="calev ev-"+t.category;ev.textContent=t.title;cell.appendChild(ev)});if(dt.length>3){const m=document.createElement("div");m.className="calmr";m.textContent="+"+(dt.length-3)+" more";cell.appendChild(m)}g.appendChild(cell)}const rem=(7-(f+dim)%7)%7;for(let i=1;i<=rem;i++){const c=document.createElement("div");c.className="calcel om";c.innerHTML='<div class="caldate">'+i+"</div>";g.appendChild(c)}}
 function showCalDay(ds,tasks){const d=new Date(ds+"T12:00:00");document.getElementById("mCaldayTitle").textContent=d.toLocaleDateString("en-AU",{weekday:"long",month:"long",day:"numeric"});const list=document.getElementById("caldayList");list.innerHTML="";const dt=(tasks||S.tasks||[]).filter(t=>t.date===ds);if(!dt.length)list.innerHTML='<div style="color:var(--text3);font-size:11.5px">No events.</div>';else dt.forEach(t=>{const r=document.createElement("div");r.style.cssText="display:flex;align-items:center;gap:7px;padding:6px 8px;background:var(--bg3);border-radius:7px;cursor:pointer";r.onclick=()=>{closeM("mCalday");eEditTask(t.id)};const avL=t.assignedTo==="both"?"&#9733;":(t.assignedTo==="A"?(S.nA||"T")[0]:(S.nB||"L")[0]);r.innerHTML='<div class="mav '+(t.assignedTo==="B"?"av-b":"av-a")+'" style="width:18px;height:18px;font-size:8px">'+avL+'</div><div style="flex:1"><div style="font-size:11.5px;font-weight:500">'+h(t.title)+'</div><div style="font-size:10px;color:var(--text3)">'+(t.time||"")+" \xb7 "+t.category+"</div></div>";list.appendChild(r)});openM("mCalday")}
 
 /* ===== PROJECTS ===== */
